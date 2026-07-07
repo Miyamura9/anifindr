@@ -284,9 +284,10 @@ export default async function AnimeDetailPage({ params }: Props) {
           {anime.synopsis && (
             <div style={{ marginBottom: "2rem" }}>
               <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 700, marginBottom: "0.75rem" }}>SINOPSIS</h3>
-              <p style={{ color: "var(--text-secondary)", lineHeight: 1.8, fontSize: "0.95rem" }}>
-                {anime.synopsis}
-              </p>
+              <div 
+                style={{ color: "var(--text-secondary)", lineHeight: 1.8, fontSize: "0.95rem" }}
+                dangerouslySetInnerHTML={{ __html: anime.synopsis }}
+              />
             </div>
           )}
 

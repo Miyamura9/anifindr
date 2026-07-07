@@ -78,7 +78,7 @@ const TYPE_KEYWORDS: Record<string, string> = {
   "ova": "OVA", "ona": "ONA", "special": "SPECIAL",
 };
 
-interface ParsedQuery {
+export interface ParsedQuery {
   titleTerms: string[];     // Words likely referring to anime titles
   genreTerms: string[];     // Detected genre names
   year: number | null;      // Detected year
@@ -87,7 +87,7 @@ interface ParsedQuery {
   allSearchTerms: string[]; // All meaningful terms for text search
 }
 
-function parseSmartQuery(rawQuery: string): ParsedQuery {
+export function parseSmartQuery(rawQuery: string): ParsedQuery {
   const query = rawQuery.trim().toLowerCase();
   const words = query.split(/\s+/).filter(Boolean);
 

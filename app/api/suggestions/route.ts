@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
+import { parseSmartQuery } from "@/lib/search/tfidf";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim();
@@ -11,18 +13,46 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ suggestions: [] });
   }
 
-  const queryLower = q.toLowerCase();
-
   try {
-    // Search anime titles matching the query
+    const parsed = parseSmartQuery(q);
+    const whereClause: Prisma.AnimeWhereInput = {};
+
+    if (parsed.status) {
+      whereClause.status = parsed.status as any;
+    }
+    if (parsed.year) {
+      whereClause.year = parsed.year;
+    }
+    if (parsed.type) {
+      whereClause.type = parsed.type as any;
+    }
+    
+    // Match any of the detected genres
+    if (parsed.genreTerms.length > 0) {
+      whereClause.genres = {
+        some: {
+          genre: {
+            OR: parsed.genreTerms.map((g) => ({
+              name: { contains: g, mode: "insensitive" },
+            })),
+          },
+        },
+      };
+    }
+    
+    // If there are leftover title terms, match against titles
+    if (parsed.titleTerms.length > 0) {
+      const titleQuery = parsed.titleTerms.join(" ");
+      whereClause.OR = [
+        { title: { contains: titleQuery, mode: "insensitive" } },
+        { titleEnglish: { contains: titleQuery, mode: "insensitive" } },
+      ];
+    }
+
+    // Search anime matching the smart parsed query
     const animes = await prisma.anime.findMany({
-      where: {
-        OR: [
-          { title: { contains: q, mode: "insensitive" } },
-          { titleEnglish: { contains: q, mode: "insensitive" } },
-        ],
-      },
-      orderBy: [{ popularity: "asc" }],
+      where: whereClause,
+      orderBy: [{ popularity: "asc" }], // Most popular first
       take: 6,
       select: {
         id: true,
@@ -36,8 +66,8 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Also match genres
-    const genres = await prisma.genre.findMany({
+    // Also match raw genres for genre suggestions (useful if user is just typing a genre)
+    const genreSuggestions = await prisma.genre.findMany({
       where: { name: { contains: q, mode: "insensitive" } },
       take: 4,
       select: { name: true },
@@ -54,7 +84,7 @@ export async function GET(req: NextRequest) {
         year: a.year,
         genres: a.genres.map((g) => g.genre.name),
       })),
-      genres: genres
+      genres: genreSuggestions
         .filter((g) => !animes.some((a) =>
           a.title.toLowerCase().includes(g.name.toLowerCase())
         ))
